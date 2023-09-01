@@ -8,7 +8,7 @@ typedef struct KVpair_ {
     void* value;
 } KVpair;
 
-typedef struct Map_ {
+typedef struct HashMap_ {
     KVpair** kvp;
     size_t capacity;
     size_t size;
@@ -17,6 +17,14 @@ typedef struct Map_ {
 
 HashMap* map_init();
 size_t map_size(HashMap* map);
-void map_put(HashMap* map);
+void map_put(HashMap* map, char* key, void* value, size_t value_size);
+char* map_get(HashMap* map, char* key);
+void map_remove(HashMap* map, char* key);
+void map_free(HashMap* map);
+
+
+int map_resize(HashMap* map, size_t size);
+size_t hash(char* key, size_t capacity);
+
 
 #endif
