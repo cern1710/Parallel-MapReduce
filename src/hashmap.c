@@ -1,8 +1,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "hashmap.h"
+
 #include "pthread.h"
+#include "hashmap.h"
+#include "hash.h"
 
 HashMap* map_init() {
     HashMap* map = (HashMap*) malloc(sizeof(HashMap));
@@ -62,7 +64,7 @@ int map_resize(HashMap* map, size_t size) {
         return -1; 
     }
 
-    size_t i, hash_val;
+    size_t i, hashVal;
     KVpair* entry;
 
     // rehashing existing keys
@@ -71,14 +73,14 @@ int map_resize(HashMap* map, size_t size) {
             entry = map->kvp[i];
         } else continue;
         
-        hash_val = hash(entry->key, size);
-        while (temp[hash_val] != NULL) {
-            if (++hash_val == size) {
-                hash_val = 0;
+        hashVal = bucket_hash(entry->key, size);
+        while (temp[hashVal] != NULL) {
+            if (++hashVal == size) {
+                hashVal = 0;
             }
         }
         
-        temp[hash_val] = entry;
+        temp[hashVal] = entry;
     }
     
     // free old kvp and replace with new one
@@ -90,8 +92,3 @@ int map_resize(HashMap* map, size_t size) {
 
     return 0;
 } // map_resize()
-
-
-size_t hash(char* key, size_t capacity) {
-
-} // hash()

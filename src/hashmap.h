@@ -1,8 +1,6 @@
 #ifndef __hashmap_h__
 #define __hashmap_h__
 
-#define MAP_CAPACITY_INIT 23    // or maybe 31
-
 typedef struct KVpair_ {
     char* key;
     void* value;
@@ -22,9 +20,6 @@ char* map_get(HashMap* map, char* key);
 void map_remove(HashMap* map, char* key);
 void map_free(HashMap* map);
 
-
 int map_resize(HashMap* map, size_t size);
-size_t hash(char* key, size_t capacity);
-
 
 #endif
