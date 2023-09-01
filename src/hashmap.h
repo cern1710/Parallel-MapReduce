@@ -1,5 +1,5 @@
-#ifndef __hashmap_h__
-#define __hashmap_h__
+#ifndef HASHMAP_H
+#define HASHMAP_H
 
 typedef struct KVpair_ {
     char* key;

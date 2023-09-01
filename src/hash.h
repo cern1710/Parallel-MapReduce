@@ -1,5 +1,5 @@
-#ifndef __hash_h__
-#define __hash_h__
+#ifndef HASH_H
+#define HASH_H
 
 #include <stddef.h> // for size_t
 
@@ -14,4 +14,4 @@ size_t min_hash(char* key, size_t capacity);
 size_t bucket_hash(char* key, size_t capacity);
 size_t fnv1a_hash(char* key, size_t capacity);
 
-#endif
+#endif // HASH_H
