@@ -1,13 +1,13 @@
 #ifndef HASHMAP_H
 #define HASHMAP_H
 
-typedef struct KVpair_ {
+typedef struct MapPair_ {
     char* key;
     void* value;
-} KVpair;
+} MapPair;
 
 typedef struct HashMap_ {
-    KVpair** kvp;
+    MapPair** kvp;
     size_t capacity;
     size_t size;
     pthread_rwlock_t rwlock;

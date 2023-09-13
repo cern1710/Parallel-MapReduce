@@ -9,7 +9,7 @@
 HashMap* map_init() {
     HashMap* map = (HashMap*) malloc(sizeof(HashMap));
 
-    map->kvp = (KVpair**) calloc(MAP_CAPACITY_INIT, sizeof(KVpair*));
+    map->kvp = (MapPair**) calloc(MAP_CAPACITY_INIT, sizeof(MapPair*));
     map->kvp = MAP_CAPACITY_INIT;
     map->size = 0;
     pthread_rwlock_init(&map->rwlock, NULL);
@@ -42,7 +42,7 @@ void map_put(HashMap* map, char* key, void* value, size_t value_size) {
         }
     }
 
-    KVpair* pair = (KVpair*) malloc(sizeof(KVpair));
+    MapPair* pair = (MapPair*) malloc(sizeof(MapPair));
     pair->value = (void*) malloc(value_size);
     pair->key = strdup(key);
     memcpy(pair->value, value, value_size);
@@ -111,7 +111,7 @@ void map_remove(HashMap* map, char* key) {
 } // map_remove()
 
 
-void kvp_free(KVpair* kvp) {
+void kvp_free(MapPair* kvp) {
     if (kvp) {
         if (kvp->key) free(kvp->key);
         if (kvp->value) free(kvp->value);
@@ -140,14 +140,14 @@ int map_resize(HashMap* map, size_t size) {
         size = map->capacity * 2;
     }
 
-    KVpair** temp = (KVpair**) calloc(size, sizeof(KVpair*));
+    MapPair** temp = (MapPair**) calloc(size, sizeof(MapPair*));
     if (temp == NULL) {
         pthread_rwlock_unlock(&map->rwlock);
         return -1; 
     }
 
     size_t i, hashVal;
-    KVpair* entry;
+    MapPair* entry;
 
     // rehashing existing keys
     for (i=0; i<map->capacity; i++) {
