@@ -9,6 +9,16 @@
 #include "hashmap.h"
 #include "mapreduce.h"
 
+#define MAPS_NUM 1000
+
+HashMap *maps[MAPS_NUM];
+KVList *hashKVP[MAPS_NUM];
+pthread_mutex_t locks[MAPS_NUM];
+
+KVList* init_kvlist(size_t size) {
+    KVList *list = (KVList*)malloc(sizeof(KVList));
+}
+
 void Map(char *file_name) {
     FILE *fp = fopen(file_name, "r");
     assert(fp != NULL);

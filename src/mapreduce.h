@@ -7,6 +7,23 @@ typedef void (*Mapper)(char *file_name);
 typedef void (*Reducer)(char *key, Getter get_func, int partition_number);
 typedef unsigned long (*Partitioner)(char *key, int num_partitions);
 
+typedef struct KVpair_ {
+    char *key;
+    char *value;
+} KVpair;
+
+typedef struct KVList_ {
+    KVpair** kvp;
+    size_t capacity;
+    size_t size;
+} KVList;
+
+typedef struct getterParams_ {
+    Getter getFunc;
+    Reducer reduceFunc;
+    int partNum;
+} getterParams;
+
 // external functions
 void MR_Emit(char *key, char *value);
 

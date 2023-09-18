@@ -1,5 +1,5 @@
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "pthread.h"
@@ -37,7 +37,7 @@ void map_put(HashMap* map, char* key, void* value, size_t value_size) {
     if (map->size > (map->capacity / 2)) {
         if (map_resize(map, -1) < 0) {
             lock = pthread_rwlock_unlock(&map->rwlock);
-            fprtinf(stderr, "Error: map_put() failed.\n");
+            fprintf(stderr, "Error: map_put() failed.\n");
             exit(0);
         }
     }
@@ -70,7 +70,7 @@ void map_put(HashMap* map, char* key, void* value, size_t value_size) {
 
 char* map_get(HashMap* map, char* key) {
     int lock = pthread_rwlock_rdlock(&map->rwlock);
-    int hashVal = Hash(key, map->capacity);
+    int hashVal = hash(key, map->capacity);
 
     while (map->kvp[hashVal] != NULL) {
         // update if keys are equal
