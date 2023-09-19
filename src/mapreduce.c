@@ -9,7 +9,7 @@
 #include "hashmap.h"
 #include "mapreduce.h"
 
-#define MAPS_NUM 1000
+#define MAPS_NUM 100
 #define CHECK_MALLOC(ptr) \
     do { \
         if ((ptr) == NULL) { \
@@ -29,7 +29,7 @@ int map_workers = 0;
 int reduce_workers = 0;
 Partitioner partition_func; // pointer to partition function
 
-KVList* init_kvlist(size_t size) {
+KVList* initKVlist(size_t size) {
     KVList *list = (KVList*)malloc(sizeof(KVList));
 
     CHECK_MALLOC(list);
@@ -45,7 +45,22 @@ KVList* init_kvlist(size_t size) {
     list->size = size;
 
     return list;
-} // init_kvlist()
+}
+
+
+void initHashKVP(int num_reducers) {
+    int i;
+    for (i=0; i<num_reducers; i++) {
+        hashKVP[i] = initKVlist(MAPS_NUM/10);
+        pthread_mutex_init(&locks[i], NULL);
+    }
+}
+
+
+void initPartition(int partition) {
+    partition_func = (partition == NULL)
+                        ? &MR_DefaultHashPartition : partition;
+}
 
 
 void add(KVList *list, KVpair* kvp) {
@@ -56,7 +71,7 @@ void add(KVList *list, KVpair* kvp) {
     }
 
     list->kvp[list->capacity++] = kvp;
-} // add()
+}
 
 
 char* get(char* key, int partition_num) {
@@ -76,7 +91,7 @@ char* get(char* key, int partition_num) {
     
     kvl_count[partition_num] += 1;
     return cur_kvp->value;
-} // get()
+}
 
 
 void MR_Emit(char *key, char *value) {
@@ -120,7 +135,7 @@ unsigned long MR_DefaultHashPartition(char *key, int num_partitions) {
 } // MR_DefaultHashPartition()
 
 
-void reduce_partition(getterParams *params) {
+void reducePartition(getterParams *params) {
     Reducer reduce = params->reduceFunc;
 
     pthread_mutex_lock(&locks[params->partNum]);
@@ -150,6 +165,6 @@ void MR_Run(int argc, char *argv[], Mapper map, int num_mappers,
     int i=0, l=0;
 
     for (; i<num_reducers; i++) {
-        
+
     }
 } // MR_Run()

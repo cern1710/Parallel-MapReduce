@@ -10,8 +10,8 @@
 
 size_t hash(char* str, size_t length);
 
-size_t min_hash(char* key, size_t capacity);
-size_t bucket_hash(char* key, size_t capacity);
-size_t fnv1a_hash(char* key, size_t capacity);
+size_t minHash(char* key, size_t capacity);
+size_t bucketHash(char* key, size_t capacity);
+size_t fnv1aHash(char* key, size_t capacity);
 
 #endif // HASH_H

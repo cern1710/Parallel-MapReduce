@@ -9,7 +9,7 @@ size_t hash(char* str, size_t length) {
 } //hash()
 
 
-size_t min_hash(char* key, size_t capacity) {
+size_t minHash(char* key, size_t capacity) {
     size_t minHashVal = __SIZE_MAX__;
     size_t sequenceLen = strlen(key);
     size_t i = 0, hashVal = 0;
@@ -24,7 +24,7 @@ size_t min_hash(char* key, size_t capacity) {
 } //min_hash()
 
 
-size_t bucket_hash(char* key, size_t capacity) {
+size_t bucketHash(char* key, size_t capacity) {
     int i = 0, len = strlen(key);
     size_t hashVal = 0;
 
@@ -35,7 +35,7 @@ size_t bucket_hash(char* key, size_t capacity) {
 } //bucket_hash()
 
 
-size_t fnv1a_hash(char* key, size_t capacity) {
+size_t fnv1aHash(char* key, size_t capacity) {
     size_t hashVal = FNV_OFFSET;
     for (const char *p = key; *p; p++) {
         hashVal ^= (size_t)(unsigned char)(*p);

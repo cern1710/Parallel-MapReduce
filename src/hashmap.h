@@ -13,13 +13,13 @@ typedef struct HashMap_ {
     pthread_rwlock_t rwlock;
 } HashMap;
 
-HashMap* map_init();
-size_t map_size(HashMap* map);
-void map_put(HashMap* map, char* key, void* value, size_t value_size);
-char* map_get(HashMap* map, char* key);
-void map_remove(HashMap* map, char* key);
-void map_free(HashMap* map);
+HashMap* initMap();
+size_t mapSize(HashMap* map);
+void mapPut(HashMap* map, char* key, void* value, size_t value_size);
+char* mapGet(HashMap* map, char* key);
+void mapRemove(HashMap* map, char* key);
+void freeMap(HashMap* map);
 
-int map_resize(HashMap* map, size_t size);
+int mapResize(HashMap* map, size_t size);
 
 #endif

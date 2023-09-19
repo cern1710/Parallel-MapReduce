@@ -6,7 +6,7 @@
 #include "hashmap.h"
 #include "hash.h"
 
-HashMap* map_init() {
+HashMap* initMap() {
     HashMap* map = (HashMap*) malloc(sizeof(HashMap));
 
     map->kvp = (MapPair**) calloc(MAP_CAPACITY_INIT, sizeof(MapPair*));
@@ -15,10 +15,10 @@ HashMap* map_init() {
     pthread_rwlock_init(&map->rwlock, NULL);
 
     return map;
-} // map_init()
+}
 
 
-size_t map_size(HashMap* map) {
+size_t mapSize(HashMap* map) {
     int lock = pthread_rwlock_rdlock(&map->rwlock);
     // if (lock != 0) { return -1; }
     
@@ -28,14 +28,14 @@ size_t map_size(HashMap* map) {
     if (lock != 0) { return -1; }
 
     return size;
-} // map_size()
+}
 
 
-void map_put(HashMap* map, char* key, void* value, size_t value_size) {
+void mapPut(HashMap* map, char* key, void* value, size_t value_size) {
     int lock = pthread_rwlock_rdlock(&map->rwlock), hashVal;
     
     if (map->size > (map->capacity / 2)) {
-        if (map_resize(map, -1) < 0) {
+        if (mapResize(map, -1) < 0) {
             lock = pthread_rwlock_unlock(&map->rwlock);
             fprintf(stderr, "Error: map_put() failed.\n");
             exit(0);
@@ -65,10 +65,10 @@ void map_put(HashMap* map, char* key, void* value, size_t value_size) {
     map->size += 1;
 
     pthread_rwlock_unlock(&map->rwlock);
-} // map_put()
+}
 
 
-char* map_get(HashMap* map, char* key) {
+char* mapGet(HashMap* map, char* key) {
     int lock = pthread_rwlock_rdlock(&map->rwlock);
     int hashVal = hash(key, map->capacity);
 
@@ -86,7 +86,7 @@ char* map_get(HashMap* map, char* key) {
     return NULL;
 } // map_get()
 
-void map_remove(HashMap* map, char* key) {
+void mapRemove(HashMap* map, char* key) {
     int lock = pthread_rwlock_rdlock(&map->rwlock), hashVal;
 
     while (map->kvp[hashVal] != NULL) {
@@ -108,32 +108,32 @@ void map_remove(HashMap* map, char* key) {
     }
 
     pthread_rwlock_unlock(&map->rwlock);
-} // map_remove()
+}
 
 
-void kvp_free(MapPair* kvp) {
+void freeKVP(MapPair* kvp) {
     if (kvp) {
         if (kvp->key) free(kvp->key);
         if (kvp->value) free(kvp->value);
         free (kvp);
     }
-} // kvp_free()
+}
 
 
-void map_free(HashMap* map) {
+void freeMap(HashMap* map) {
     if (map) {
         if (map->kvp) {
             for (size_t i=0; i < map->capacity; i++) {
-                kvp_free(map->kvp[i]);
+                freeKVP(map->kvp[i]);
             }
         }
         pthread_rwlock_destroy(&map->rwlock);
         free(map);
     }
-} // map_free()
+}
 
 
-int map_resize(HashMap* map, size_t size) {
+int mapResize(HashMap* map, size_t size) {
     pthread_rwlock_rdlock(&map->rwlock);
 
     if (size == -1) {
@@ -155,7 +155,7 @@ int map_resize(HashMap* map, size_t size) {
             entry = map->kvp[i];
         } else continue;
         
-        hashVal = bucket_hash(entry->key, size);
+        hashVal = bucketHash(entry->key, size);
         while (temp[hashVal] != NULL) {
             if (++hashVal == size) {
                 hashVal = 0;
@@ -173,4 +173,4 @@ int map_resize(HashMap* map, size_t size) {
     pthread_rwlock_unlock(&map->rwlock);
 
     return 0;
-} // map_resize()
+}
