@@ -18,12 +18,16 @@
         } \
     } while(0)
 
-// global arrays
+// global arrays with static size
 HashMap *maps[MAPS_NUM];
 KVList *hashKVP[MAPS_NUM];
 pthread_mutex_t locks[MAPS_NUM];
+
+// global arrays dynamically sized
 pthread_t *map_threads;
 pthread_t *reduce_threads;
+getterParams *paramsList;
+int *paramsIndex;
 
 // global memory
 size_t *kvl_count;
@@ -74,6 +78,12 @@ void initParams(int num_mappers, int num_reducers, Partitioner partition) {
     // partition function
     partition_func = (partition == NULL)
                         ? &MR_DefaultHashPartition : partition;
+    
+    // getter params
+    // paramsList = malloc(sizeof(getterParams) * num_reducers);
+    paramsIndex = malloc(sizeof(int) * num_reducers);
+    for (i=0; i<num_reducers; i++)
+        paramsIndex[i] = -1;
     
     // reduce workers
     reduce_workers = num_reducers;
@@ -178,20 +188,6 @@ void reducePartition(getterParams *params) {
 }
 
 
-void createMapThreads(char *argv[], int start, int end, Mapper map) {
-    int i;
-    for (i=start; i<end; i++) {
-        if (strstr(argv[i], ".") == NULL) continue;
-        pthread_create(&map_threads[i-start], NULL, (void*)(*map), argv[i]);
-    }
-    for (i=start; i<end; i++) {
-        if (map_threads[i-start] != -1) {
-            pthread_join(map_threads[i-start], NULL);
-        }
-    }
-}
-
-
 int cmp(const void* a, const void* b) {
     char *str1, *str2;
     str1 = (*(KVpair**)a)->key;
@@ -212,13 +208,23 @@ void sortHashKVP(int num_reducers) {
 }
 
 
-void MR_Run(int argc, char *argv[], Mapper map, int num_mappers, 
-	    Reducer reduce, int num_reducers, Partitioner partition) {
-    int i, num_files = argc-1, files_processed = 0;
-    int start, end;
-    pthread_t thread_id;
+void createMapThreads(char *argv[], int start, int end, Mapper map) {
+    int i;
+    for (i=start; i<end; i++) {
+        if (strstr(argv[i], ".") == NULL) continue;
+        pthread_create(&map_threads[i-start], NULL, (void*)(*map), argv[i]);
+    }
+    for (i=start; i<end; i++) {
+        if (map_threads[i-start] != -1) {
+            pthread_join(map_threads[i-start], NULL);
+        }
+    }
+} // createMapThreads()
 
-    initParams(num_mappers, num_reducers, partition);
+
+void mapThreads(int argc, char *argv[], Mapper map, int num_files,
+        int num_mappers, int num_reducers) {
+    int files_processed=0, start, end;
 
     if (num_files <= num_mappers) { // each file has its own mapper thread
         createMapThreads(argv, 1, argc, map);
@@ -235,6 +241,23 @@ void MR_Run(int argc, char *argv[], Mapper map, int num_mappers,
             files_processed += end - start;
         }
     }
-
     sortHashKVP(num_reducers);
+} // mapThreads()
+
+
+void MR_Run(int argc, char *argv[], Mapper map, int num_mappers, 
+	    Reducer reduce, int num_reducers, Partitioner partition) {
+    int num_files = argc-1, files_processed = 0;
+    int start, end, hashKVP_count;
+    pthread_t thread_id;
+
+    initParams(num_mappers, num_reducers, partition);
+
+    // MAP
+    mapThreads(argc, argv, map, num_files, num_mappers, num_reducers);
+
+    // REDUCE
+    // for (i=0; i<num_reducers; i++) {
+    //     if (hashKVP[i] != NULL && )
+    // }
 } // MR_Run()
