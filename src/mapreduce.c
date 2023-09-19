@@ -120,7 +120,36 @@ unsigned long MR_DefaultHashPartition(char *key, int num_partitions) {
 } // MR_DefaultHashPartition()
 
 
+void reduce_partition(getterParams *params) {
+    Reducer reduce = params->reduceFunc;
+
+    pthread_mutex_lock(&locks[params->partNum]);
+
+    KVList *partition = hashKVP[params->partNum];
+    char *prev = " ";
+    int keys_found = 0, i=0;
+
+    // iterate through all key-value pairs in current partition
+    for (; i<partition->capacity; i++) {
+        if (strcmp(partition->kvp[i]->key, prev) == 0) {
+            continue;
+        }
+        keys_found++;
+
+        // reduce current key
+        (*reduce)(partition->kvp[i]->key, params->getFunc, params->partNum);
+        prev = partition->kvp[i]->key;
+    }
+    kvl_count[params->partNum] = 0;
+
+    pthread_mutex_unlock(&locks[params->partNum]);
+}
+
 void MR_Run(int argc, char *argv[], Mapper map, int num_mappers, 
 	    Reducer reduce, int num_reducers, Partitioner partition) {
-    int c;
+    int i=0, l=0;
+
+    for (; i<num_reducers; i++) {
+        
+    }
 } // MR_Run()
