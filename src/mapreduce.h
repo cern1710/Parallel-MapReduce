@@ -14,7 +14,7 @@ typedef struct KVpair_ {
 
 typedef struct KVList_ {
     KVpair** kvp;
-    size_t capacity;
+    size_t num_kvp;
     size_t size;
 } KVList;
 

@@ -22,6 +22,8 @@
 HashMap *maps[MAPS_NUM];
 KVList *hashKVP[MAPS_NUM];
 pthread_mutex_t locks[MAPS_NUM];
+pthread_t *map_threads;
+pthread_t *reduce_threads;
 
 // global memory
 size_t *kvl_count;
@@ -41,36 +43,51 @@ KVList* initKVlist(size_t size) {
         CHECK_MALLOC(list->kvp);
     }
 
-    list->capacity = 0;
+    list->num_kvp = 0;
     list->size = size;
 
     return list;
 }
 
 
-void initHashKVP(int num_reducers) {
+void initParams(int num_mappers, int num_reducers, Partitioner partition) {
     int i;
+
+    // hash KVP
     for (i=0; i<num_reducers; i++) {
         hashKVP[i] = initKVlist(MAPS_NUM/10);
         pthread_mutex_init(&locks[i], NULL);
     }
-}
 
+    // kvl counter
+    kvl_count = malloc(sizeof(size_t) * num_reducers);
+    for (i=0; i<num_reducers; i++)
+        kvl_count[i] = 0;
+    
+    // map threads and reduce threads
+    map_threads = malloc(sizeof(pthread_t) * num_mappers);
+    reduce_threads = malloc(sizeof(pthread_t) * num_reducers);
+    for (i=0; i<num_mappers; i++) {
+        map_threads[i] = -1;
+    }
 
-void initPartition(int partition) {
+    // partition function
     partition_func = (partition == NULL)
                         ? &MR_DefaultHashPartition : partition;
+    
+    // reduce workers
+    reduce_workers = num_reducers;
 }
 
 
 void add(KVList *list, KVpair* kvp) {
-    // resize the list if capacity is reached
-    if (list->capacity == list-> size) {
+    // resize the list if number of KVPs is reached
+    if (list->num_kvp == list-> size) {
         list->size *= 2;
         list->kvp = realloc(list->kvp, list->size * sizeof(KVpair*));
     }
 
-    list->kvp[list->capacity++] = kvp;
+    list->kvp[list->num_kvp++] = kvp;
 }
 
 
@@ -79,8 +96,8 @@ char* get(char* key, int partition_num) {
 
     size_t cur_count = kvl_count[partition_num];
 
-    // if current count ahs reached max capacity, key is not inside
-    if (cur_count == list->capacity) 
+    // if current count has reached max number of KVPs, key is not inside
+    if (cur_count == list->num_kvp) 
         return NULL;
 
     KVpair *cur_kvp = list->kvp[cur_count];
@@ -145,7 +162,7 @@ void reducePartition(getterParams *params) {
     int keys_found = 0, i=0;
 
     // iterate through all key-value pairs in current partition
-    for (; i<partition->capacity; i++) {
+    for (; i<partition->num_kvp; i++) {
         if (strcmp(partition->kvp[i]->key, prev) == 0) {
             continue;
         }
@@ -160,11 +177,64 @@ void reducePartition(getterParams *params) {
     pthread_mutex_unlock(&locks[params->partNum]);
 }
 
+
+void createMapThreads(char *argv[], int start, int end, Mapper map) {
+    int i;
+    for (i=start; i<end; i++) {
+        if (strstr(argv[i], ".") == NULL) continue;
+        pthread_create(&map_threads[i-start], NULL, (void*)(*map), argv[i]);
+    }
+    for (i=start; i<end; i++) {
+        if (map_threads[i-start] != -1) {
+            pthread_join(map_threads[i-start], NULL);
+        }
+    }
+}
+
+
+int cmp(const void* a, const void* b) {
+    char *str1, *str2;
+    str1 = (*(KVpair**)a)->key;
+    str2 = (*(KVpair**)b)->key;
+    return strcmp(str1, str2);
+}
+
+
+void sortHashKVP(int num_reducers) {
+    int i;
+    KVList *cur_kvp;
+    for (i=0; i<num_reducers; i++) {
+        cur_kvp = hashKVP[i];
+        if (cur_kvp != NULL && cur_kvp->num_kvp > 0) {
+            qsort(cur_kvp->kvp, cur_kvp->num_kvp, sizeof(KVpair*), cmp);
+        }
+    }
+}
+
+
 void MR_Run(int argc, char *argv[], Mapper map, int num_mappers, 
 	    Reducer reduce, int num_reducers, Partitioner partition) {
-    int i=0, l=0;
+    int i, num_files = argc-1, files_processed = 0;
+    int start, end;
+    pthread_t thread_id;
 
-    for (; i<num_reducers; i++) {
+    initParams(num_mappers, num_reducers, partition);
 
+    if (num_files <= num_mappers) { // each file has its own mapper thread
+        createMapThreads(argv, 1, argc, map);
     }
+    else {    // imbalance workload
+        files_processed = 0;
+        while (files_processed < num_files) {
+            end = num_mappers + (start = files_processed+1);
+
+            if (end > argc)
+                end = argc;
+            
+            createMapThreads(argv, start, end, map);
+            files_processed += end - start;
+        }
+    }
+
+    sortHashKVP(num_reducers);
 } // MR_Run()
