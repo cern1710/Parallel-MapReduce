@@ -15,6 +15,11 @@ Partitioner partition_func; // pointer to partition function
 int map_workers = 0;
 int reduce_workers = 0;
 
+pthread_t *map_threads;
+char *thread_used;
+pthread_t *reduce_threads;
+size_t *kvl_count;
+
 #define CHECK_MALLOC(ptr) \
     do { \
         if ((ptr) == NULL) { \
@@ -42,7 +47,7 @@ KVList* initKVlist(size_t size) {
 }
 
 
-void initParams(MR_Context *context, int num_mappers, int num_reducers, 
+void initParams(int num_mappers, int num_reducers, 
                 Partitioner partition) {
     int i;
 
@@ -53,25 +58,21 @@ void initParams(MR_Context *context, int num_mappers, int num_reducers,
     }
 
     // kvl counter
-    context->kvl_count = malloc(sizeof(size_t) * num_reducers);
+    kvl_count = malloc(sizeof(size_t) * num_reducers);
     for (i=0; i<num_reducers; i++)
-        context->kvl_count[i] = 0;
+        kvl_count[i] = 0;
     
     // map threads and reduce threads
-    context->map_threads = malloc(sizeof(pthread_t) * num_mappers);
-    context->reduce_threads = malloc(sizeof(pthread_t) * num_reducers);
-    for (i=0; i<num_mappers; i++)
-        context->map_threads[i] = -1;
+    map_threads = malloc(sizeof(pthread_t) * num_mappers);
+    thread_used = malloc(sizeof(char) * num_mappers);
+    reduce_threads = malloc(sizeof(pthread_t) * num_reducers);
+    for (i=0; i<num_mappers; i++) {
+        thread_used[i] = '0';
+    }
 
     // partition function
     partition_func = (partition == NULL)
                         ? &MR_DefaultHashPartition : partition;
-    
-    // getter params
-    context->paramsList = malloc(sizeof(getterParams) * num_reducers);
-    context->paramsIndex = malloc(sizeof(int) * num_reducers);
-    for (i=0; i<num_reducers; i++)
-        context->paramsIndex[i] = -1;
     
     // reduce workers
     reduce_workers = num_reducers;
@@ -89,10 +90,10 @@ void add(KVList *list, KVpair* kvp) {
 }
 
 
-char* get(MR_Context context, char* key, int partition_num) {
+char* get(char* key, int partition_num) {
     KVList *list = hashKVP[partition_num];
 
-    size_t cur_count = context.kvl_count[partition_num];
+    size_t cur_count = kvl_count[partition_num];
 
     // if current count has reached max number of KVPs, key is not inside
     if (cur_count == list->num_kvp) 
@@ -104,7 +105,7 @@ char* get(MR_Context context, char* key, int partition_num) {
     if (strcmp(cur_kvp->key, key) != 0)
         return NULL;
     
-    context.kvl_count[partition_num] += 1;
+    kvl_count[partition_num] += 1;
     return cur_kvp->value;
 }
 
@@ -115,21 +116,9 @@ void MR_Emit(char *key, char *value) {
 
     int partition_num = (*partition_func)(key, reduce_workers);
 
-    char* key_temp = strdup(key);
-    // if (key_temp == NULL) {
-    //     free(temp);
-    //     CHECK_MALLOC(key_temp);
-    // }
-
-    char* value_temp = strdup(value);
-    // if (value_temp == NULL) {
-    //     free(key_temp);
-    //     free(temp);
-    //     CHECK_MALLOC(value_temp);
-    // }
-
-    temp->key = key_temp;
-    temp->value = value_temp;
+    // assumes this does not crash
+    temp->key = strdup(key);
+    temp->value = strdup(value);
 
     pthread_mutex_lock(&locks[partition_num]);
     add(hashKVP[partition_num], temp);
@@ -172,50 +161,57 @@ void sortHashKVP(KVList *hashKVP[], int num_reducers) {
 }
 
 
-void createMapThreads(MR_Context *context, char *argv[], 
-                        int start, int end, Mapper map) {
+void createThread(pthread_t *thread_id, Mapper map, char *file_name) {
+    if (strstr(file_name, ".") != NULL)
+        pthread_create(thread_id, NULL, (void *)(*map), file_name);
+}
+
+
+void joinThreads(pthread_t map_threads[], int num_threads) {
     int i;
-    pthread_t thread_id;
-
-    for (i=start; i<end; i++) {
-        if (strstr(argv[i], ".") == NULL) 
-            continue;
-        pthread_create(&thread_id, NULL, (void*)(*map), (void*)argv[i]);
-        context->map_threads[i-start] = thread_id;
+    for (i=0; i<num_threads; i++) {
+        if (thread_used[i] == '1') {
+            pthread_join(map_threads[i], NULL);
+            thread_used[i] = '0';
+        }
     }
-    for (i=start; i<end; i++) {
-        if (context->map_threads[i-start] != -1)
-            pthread_join(context->map_threads[i-start], NULL);
-    }
-} // createMapThreads()
+}
 
 
-void mapThreads(MR_Context *context, int argc, char *argv[], Mapper map,
+void mapThreads(int argc, char *argv[], Mapper map, 
                 int num_mappers, int num_reducers) {
-    int num_files = argc-1;
-    int files_processed=0, start, end;
+    int num_files = argc - 1, file_index = 0, loop, i;
 
-    if (num_files <= num_mappers) { // each file has its own mapper thread
-        createMapThreads(context, argv, 1, argc, map);
-    } else {    // imbalance workload
-        files_processed = 0;
-        while (files_processed < num_files) {
-            end = num_mappers + (start = files_processed+1);
+    if (num_files <= num_mappers) {
+        for (i=1; i<argc; i++) {
+            if (strstr(argv[i], ".") == NULL)
+                continue;
+            createThread(&map_threads[i-1], map, argv[i]);
+            thread_used[i-1] = '1';
+            joinThreads(map_threads, i);
+        }
+    } else {
+        while (num_files > 0) {
+            loop = (num_files >= num_mappers) ? 
+                    num_mappers : num_files;
 
-            if (end > argc)
-                end = argc;
-            
-            createMapThreads(context, argv, start, end, map);
-            files_processed += end - start;
+            for (i=0; i<loop; i++) {
+                createThread(&map_threads[i], map, argv[file_index]);
+                thread_used[i] = '1';
+                file_index++;
+            }
+
+            joinThreads(map_threads, loop);
+            num_files -= num_mappers;
         }
     }
 
-    sortHashKVP(hashKVP ,num_reducers);
-} // mapThreads()
+    sortHashKVP(hashKVP, num_reducers);
+}
 
 
-void reducePartition(MR_Context *context, getterParams *params) {
-    Reducer reduce = params->reduceFunc;
+void reducePartition(getterParams *params) {
+    Reducer red = params->reduceFunc;
 
     pthread_mutex_lock(&locks[params->partNum]);
     char *prev = " ";
@@ -230,54 +226,55 @@ void reducePartition(MR_Context *context, getterParams *params) {
         keys_found++;
 
         // reduce current key
-        (*reduce)(partition->kvp[i]->key, params->getFunc, params->partNum);
+        (*red)(partition->kvp[i]->key, params->getFunc, params->partNum);
         prev = partition->kvp[i]->key;
     }
 
-    context->kvl_count[params->partNum] = 0;
+    kvl_count[params->partNum] = 0;
     pthread_mutex_unlock(&locks[params->partNum]);
 }
 
 
-void reduceThreads(MR_Context *context, Reducer reduce, int num_reducers) {
-    int i, hashKVP_count = 0;
+void reduceThreads(Reducer reduce, int num_reducers) {
     pthread_t thread_id;
+    int i, hashKVP_count = 0, paramsIndex[num_reducers];
+    getterParams *paramsList[num_reducers];
+
+    for (i=0;i<num_reducers;i++)
+        paramsIndex[i] = -1;
 
     for (i=0; i<num_reducers; i++) {
         if (hashKVP[i] != NULL && hashKVP[i]->num_kvp > 0) {
             getterParams *temp = (getterParams*)malloc(sizeof(getterParams));
             CHECK_MALLOC(temp);
-            
             temp->getFunc = get;
             temp->reduceFunc = reduce;
             temp->partNum = (*partition_func)
                 (hashKVP[i]->kvp[0]->key, reduce_workers);
-            context->paramsList[i] = temp;
-            context->paramsIndex[i] = 1;
+            paramsList[i] = temp;
+            paramsIndex[i] = 1;
         }
     }
 
     for (i=0; i<num_reducers; i++) {
         pthread_mutex_lock(&locks[i]);
-        if (!(hashKVP[i] != NULL && hashKVP[i]->num_kvp > 0))
-            continue;
-        pthread_create(&thread_id, NULL, (void*)(*reducePartition), 
-                        context->paramsList[i]);
-        context->reduce_threads[hashKVP_count] = thread_id;
-        hashKVP_count++;
+        if (hashKVP[i] != NULL && hashKVP[i]->num_kvp > 0) {
+            pthread_create(&thread_id, NULL, (void*)(*reducePartition), 
+                            paramsList[i]);
+            reduce_threads[hashKVP_count++] = thread_id;
+        }
         pthread_mutex_unlock(&locks[i]);
     }
 
-    for (i=0; i<hashKVP_count; i++) {
-        pthread_join(context->reduce_threads[i], NULL);
-    }
+    for (i=0; i<hashKVP_count; i++)
+        pthread_join(reduce_threads[i], NULL);
 } // reduceThreads()
 
 
-void freeMR(MR_Context *context, int num_mappers, int num_reducers) {
+void freeMR(int num_mappers, int num_reducers) {
     int i, j;
 
-    free(context->kvl_count);
+    free(kvl_count);
 
     for (i=0; i<MAPS_NUM; i++) {
         if (hashKVP[i] != NULL) {
@@ -291,9 +288,9 @@ void freeMR(MR_Context *context, int num_mappers, int num_reducers) {
         }
     }
 
-    for (i=0; i<num_reducers; i++)
-        if (context->paramsIndex[i] != -1)
-            free(context->paramsIndex[i]);
+    for (i=0; i<num_reducers; i++) {
+        pthread_mutex_destroy(&locks[i]);
+    }
 
     // need to free map_threads, reduce_threads, paramsList
 }
@@ -301,9 +298,8 @@ void freeMR(MR_Context *context, int num_mappers, int num_reducers) {
 
 void MR_Run(int argc, char *argv[], Mapper map, int num_mappers, 
 	    Reducer reduce, int num_reducers, Partitioner partition) {
-    MR_Context *context = (MR_Context*) malloc(sizeof(MR_Context));;
-    initParams(context, num_mappers, num_reducers, partition);
-    mapThreads(context, argc, argv, map, num_mappers, num_reducers);
-    reduceThreads(context, reduce, num_reducers);
-    freeMR(context, num_mappers, num_reducers);
+    initParams(num_mappers, num_reducers, partition);
+    mapThreads(argc, argv, map, num_mappers, num_reducers);
+    reduceThreads(reduce, num_reducers);
+    freeMR(num_mappers, num_reducers);
 } // MR_Run()

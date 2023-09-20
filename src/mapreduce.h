@@ -28,15 +28,6 @@ typedef struct getterParams_ {
     int partNum;
 } getterParams;
 
-// context struct to store global variables
-typedef struct {
-    pthread_t *map_threads;
-    pthread_t *reduce_threads;
-    getterParams **paramsList;
-    int *paramsIndex;
-    size_t *kvl_count;
-} MR_Context;
-
 // external functions
 void MR_Emit(char *key, char *value);
 
