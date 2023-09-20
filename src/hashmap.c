@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "pthread.h"
 #include "hashmap.h"
 #include "hash.h"
 

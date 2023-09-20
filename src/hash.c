@@ -1,5 +1,7 @@
 #include "hash.h"
 
+#include <string.h>
+
 size_t hash(char* str, size_t length) {
     size_t hashVal = 0, i = 0;
     for (; i<length; i++) {

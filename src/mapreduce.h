@@ -1,6 +1,10 @@
 #ifndef MAPREDUCE_H
 #define MAPREDUCE_H
 
+#include <pthread.h>
+#include "hashmap.h"
+#define MAPS_NUM 100
+
 // different function pointer types used by MR
 typedef char *(*Getter)(char *key, int partition_number);
 typedef void (*Mapper)(char *file_name);
@@ -24,8 +28,17 @@ typedef struct getterParams_ {
     int partNum;
 } getterParams;
 
+// context struct to store global variables
+typedef struct {
+    pthread_t *map_threads;
+    pthread_t *reduce_threads;
+    getterParams **paramsList;
+    int *paramsIndex;
+    size_t *kvl_count;
+} MR_Context;
+
 // external functions
-void MR_Emit(MR_Context context, char *key, char *value);
+void MR_Emit(char *key, char *value);
 
 unsigned long MR_DefaultHashPartition(char *key, int num_partitions);
 

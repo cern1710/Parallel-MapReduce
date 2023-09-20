@@ -1,6 +1,8 @@
 #ifndef HASHMAP_H
 #define HASHMAP_H
 
+#include <pthread.h>
+
 typedef struct MapPair_ {
     char* key;
     void* value;

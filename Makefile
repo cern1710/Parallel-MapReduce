@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -g # -fsanitize=address
 
-OBJS = hashmap kvp
+OBJS = hashmap hash mapreduce
 
 all: mapreduce
 
@@ -11,7 +11,7 @@ obj:
 obj/%.o: src/%.c obj
 	$(CC) $(CFLAGS) -c $< -o $@
 
-mapreduce: src/mapreduce.c $(patsubst %,obj/%.o,$(OBJS))
+mapreduce: src/main.c $(patsubst %,obj/%.o,$(OBJS))
 	$(CC) $(CFLAGS) $^ -o $@
 
 clean:
