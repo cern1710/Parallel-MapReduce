@@ -238,16 +238,10 @@ void reducePartition(getterParams *params) {
 }
 
 
-void reduceThreads(Reducer reduce, int num_reducers) {
-    MRContext *ctx = getContext();
-    pthread_t thread_id;
-    int i, hashKVP_count = 0, paramsIndex[num_reducers];
-    getterParams *paramsList[num_reducers];
-
-    for (i=0;i<num_reducers;i++)
+void initReduceThreads(MRContext *ctx, getterParams **paramsList,
+                        int *paramsIndex, Reducer reduce, int num_reducers) {
+    for (int i = 0; i < num_reducers; i++) {
         paramsIndex[i] = -1;
-
-    for (i=0; i<num_reducers; i++) {
         if (ctx->hashKVP[i] != NULL && ctx->hashKVP[i]->num_kvp > 0) {
             getterParams *temp = (getterParams*)malloc(sizeof(getterParams));
             CHECK_MALLOC(temp);
@@ -259,7 +253,18 @@ void reduceThreads(Reducer reduce, int num_reducers) {
             paramsIndex[i] = 1;
         }
     }
+} // initReduceThreads()
 
+
+void reduceThreads(Reducer reduce, int num_reducers) {
+    MRContext *ctx = getContext();
+    pthread_t thread_id;
+    int i, hashKVP_count = 0, paramsIndex[num_reducers];
+    getterParams *paramsList[num_reducers];
+
+    initReduceThreads(ctx, paramsList, paramsIndex, reduce, num_reducers);
+
+    // start threads
     for (i=0; i<num_reducers; i++) {
         pthread_mutex_lock(&ctx->locks[i]);
         if (ctx->hashKVP[i] != NULL && ctx->hashKVP[i]->num_kvp > 0) {
