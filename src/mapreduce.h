@@ -1,8 +1,11 @@
+#pragma once
+
 #ifndef MAPREDUCE_H
 #define MAPREDUCE_H
 
 #include <pthread.h>
 #include "hashmap.h"
+
 #define MAPS_NUM 100
 
 // different function pointer types used by MR
@@ -31,13 +34,13 @@ typedef struct getterParams_ {
 typedef struct MRContext_ {
     HashMap *maps[MAPS_NUM];
     KVList *hashKVP[MAPS_NUM];
+    pthread_mutex_t locks[MAPS_NUM];
     pthread_t *map_threads;
     pthread_t *reduce_threads;
-    pthread_mutex_t locks[MAPS_NUM];
+    int *thread_used;
     Partitioner partition_func; // pointer to partition function
     int map_workers;
     int reduce_workers;
-    char *thread_used;
     size_t *kvl_count;
 } MRContext;
 

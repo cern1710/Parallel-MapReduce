@@ -19,7 +19,7 @@
 MRContext* getContext(void) {
     static MRContext *instance = NULL;
 
-    if (!instance)
+    if (instance == NULL)
         instance = (MRContext*)malloc(sizeof(MRContext));
 
     return instance;
@@ -61,10 +61,10 @@ void initParams(int num_mappers, int num_reducers,
     
     // map threads and reduce threads
     ctx->map_threads = malloc(sizeof(pthread_t) * num_mappers);
-    ctx->thread_used = malloc(sizeof(char) * num_mappers);
+    ctx->thread_used = malloc(sizeof(int) * num_mappers);
     ctx->reduce_threads = malloc(sizeof(pthread_t) * num_reducers);
     for (i=0; i<num_mappers; i++)
-        ctx->thread_used[i] = '0';
+        ctx->thread_used[i] = 0;
 
     // partition function
     ctx->partition_func = (partition == NULL)
@@ -114,9 +114,10 @@ void MR_Emit(char *key, char *value) {
 
     int partition_num = (*ctx->partition_func)(key, ctx->reduce_workers);
 
-    // assumes this does not crash
-    temp->key = strdup(key);
-    temp->value = strdup(value);
+    char *temp_key = strdup(key);
+    char *temp_val = strdup(value);
+    temp->key = temp_key;
+    temp->value = temp_val;
 
     pthread_mutex_lock(&ctx->locks[partition_num]);
     add(ctx->hashKVP[partition_num], temp);
@@ -169,9 +170,9 @@ void joinThreads(MRContext *ctx, int num_threads) {
     pthread_t *map_threads = ctx->map_threads;
     int i;
     for (i=0; i<num_threads; i++) {
-        if (ctx->thread_used[i] == '1') {
+        if (ctx->thread_used[i] == 1) {
             pthread_join(map_threads[i], NULL);
-            ctx->thread_used[i] = '0';
+            ctx->thread_used[i] = 0;
         }
     }
 }
@@ -187,7 +188,7 @@ void mapThreads(int argc, char *argv[], Mapper map,
             if (strstr(argv[i], ".") == NULL)
                 continue;
             createThread(&ctx->map_threads[i-1], map, argv[i]);
-            ctx->thread_used[i-1] = '1';
+            ctx->thread_used[i-1] = 1;
             joinThreads(ctx, i);
         }
     } else {
@@ -198,7 +199,7 @@ void mapThreads(int argc, char *argv[], Mapper map,
             for (i=0; i<loop; i++) {
                 createThread(&ctx->map_threads[i], 
                                 map, argv[file_index]);
-                ctx->thread_used[i] = '1';
+                ctx->thread_used[i] = 1;
                 file_index++;
             }
 
@@ -271,6 +272,11 @@ void reduceThreads(Reducer reduce, int num_reducers) {
 
     for (i=0; i<hashKVP_count; i++)
         pthread_join(ctx->reduce_threads[i], NULL);
+
+    for (i=0; i<num_reducers; i++)
+        if (paramsIndex[i] != -1)
+            free(paramsList[i]);
+
 } // reduceThreads()
 
 
@@ -292,11 +298,13 @@ void freeMR(int num_mappers, int num_reducers) {
         }
     }
 
-    for (i=0; i<num_reducers; i++) {
+    for (i=0; i<num_reducers; i++)
         pthread_mutex_destroy(&ctx->locks[i]);
-    }
 
-    // need to free map_threads, reduce_threads, paramsList
+    free(ctx->map_threads);
+    free(ctx->reduce_threads);
+    free(ctx->thread_used);
+    free(ctx);
 }
 
 
