@@ -25,7 +25,7 @@ typedef struct getterParams_ {
 } getterParams;
 
 // external functions
-void MR_Emit(char *key, char *value);
+void MR_Emit(MR_Context context, char *key, char *value);
 
 unsigned long MR_DefaultHashPartition(char *key, int num_partitions);
 
