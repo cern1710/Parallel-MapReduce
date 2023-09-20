@@ -23,10 +23,23 @@ typedef struct KVList_ {
 } KVList;
 
 typedef struct getterParams_ {
-    Getter getFunc;
-    Reducer reduceFunc;
-    int partNum;
+    Getter get_func;
+    Reducer reduce_func;
+    int partition_num;
 } getterParams;
+
+typedef struct MRContext_ {
+    HashMap *maps[MAPS_NUM];
+    KVList *hashKVP[MAPS_NUM];
+    pthread_t *map_threads;
+    pthread_t *reduce_threads;
+    pthread_mutex_t locks[MAPS_NUM];
+    Partitioner partition_func; // pointer to partition function
+    int map_workers;
+    int reduce_workers;
+    char *thread_used;
+    size_t *kvl_count;
+} MRContext;
 
 // external functions
 void MR_Emit(char *key, char *value);
