@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -g # -fsanitize=address
 
-OBJS = hashmap hash mapreduce
+OBJS = hashmap hash mapreduce kvlist
 
 all: mapreduce
 
