@@ -4,7 +4,6 @@
 #include <string.h>
 #include <stdint.h>
 #include "mapreduce.h"
-#include "hashmap.h"
 
 HashMap* hashmap;
 
