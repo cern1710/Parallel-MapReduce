@@ -4,7 +4,6 @@
 #define MAPREDUCE_H
 
 #include <pthread.h>
-#include "hashmap.h"
 
 #define MAPS_NUM 100
 
