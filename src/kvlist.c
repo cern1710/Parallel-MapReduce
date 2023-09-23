@@ -12,16 +12,16 @@ kvp *initKVP(char *key, char *val) {
     return pair;
 }
 
+void updateKVP(kvp *kv, char *val) {
+    free(kv->value);
+    strcpy(kv->value = (char*)malloc(strlen(val)+1), val);
+}
+
 void freeKVP(kvp **kv) {
     free((*kv)->value);
     free((*kv)->key);
     free(*kv);
     kv = NULL;
-}
-
-void updateKVP(kvp *kv, char *val) {
-    free(kv->value);
-    strcpy(kv->value = (char*)malloc(strlen(val)+1), val);
 }
 
 //*************** KVP Lists ***************//
